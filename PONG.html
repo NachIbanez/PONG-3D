@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+<title>Three.js: PONG en 3D</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/103/three.min.js"></script>
+
+<script>
+   var stepX = 0.20;
+   var stepY = 0.15;
+   var collisionX = false;
+   var collisionY = false;
+   var win_score = 5;
+   var Paused_Game = true;
+   var PLAYER_GOALS = 0;
+   var CPU_GOALS = 0;
+   var game_finished = false;
+
+   document.onkeydown = function (ev) {
+     switch (ev.keyCode) {
+       case 32: // Space
+         Paused_Game = false;
+         break;
+         }
+     };
+
+   function start(){
+     if (Paused_Game == true){
+       requestAnimationFrame(start);
+     }else{
+       init();
+     }
+   }
+   function init() {
+      var scene = new THREE.Scene();
+      var sceneWidth = window.innerWidth;
+      var sceneHeight = window.innerHeight;
+
+      var camera = new THREE.PerspectiveCamera(90, sceneWidth / sceneHeight, 0.01, 100);
+      camera.position.set(0, -20, 15);
+      camera.lookAt(scene.position);
+
+      var renderer = new THREE.WebGLRenderer({
+         antialias : true
+      });
+      renderer.shadowMap.enabled = true;
+      renderer.setSize(sceneWidth, sceneHeight);
+      document.body.appendChild(renderer.domElement);
+
+      var light = getLight();
+      var leftBorder = getBorder("left", 1, 30, 3, -10, 0, 1.5);
+      var rightBorder = getBorder("right", 1, 30, 3, 10, 0, 1.5);
+      var cpu = getBorder("top", 3, 0.8, 2, 0, 13, 1.5);
+      var Player = getBorder("down", 3, 0.8, 2, 0, -13, 1.5);
+      var sphere = getSphere();
+      var floor = getFloor();
+
+      var loader = new THREE.FontLoader();
+
+      scene.add(light);
+      scene.add(leftBorder);
+      scene.add(rightBorder);
+      scene.add(cpu);
+      scene.add(Player);
+      scene.add(sphere);
+      scene.add(floor);
+
+      var borders = [ leftBorder, rightBorder, cpu, Player ];
+      animate(sphere, borders, renderer, scene, camera);
+
+      document.onkeydown = function (ev) {
+        switch (ev.keyCode) {
+          case 37: // Left
+            Player.position.x += -0.5;
+            break;
+          case 39: // Right
+            Player.position.x += 0.5;
+            break;
+          case 32: // Space
+            Paused_Game = !Paused_Game;
+            game_paused(Paused_Game);
+            break;
+            }
+        };
+   }
+
+   function animate(sphere, borders, renderer, scene, camera) {
+      checkCollision(sphere, borders);
+      ia_cpu(sphere, borders[2]);
+      end_game(PLAYER_GOALS, CPU_GOALS)
+
+      if (sphere.position.y > borders[0].geometry.parameters.height/2){
+        PLAYER_GOALS += 1;
+        document.getElementById("scores").innerHTML = PLAYER_GOALS + "-" + CPU_GOALS;
+        reset_ball(sphere, borders);
+
+      } else if (sphere.position.y < -borders[0].geometry.parameters.height/2) {
+        CPU_GOALS += 1;
+        document.getElementById("scores").innerHTML = PLAYER_GOALS + "-" + CPU_GOALS;
+        reset_ball(sphere, borders);
+
+      }
+
+      sphere.position.x += stepX;
+      sphere.position.y += stepY;
+
+      renderer.render(scene, camera);
+
+      requestAnimationFrame(function() {
+         animate(sphere, borders, renderer, scene, camera);
+      });
+   }
+
+
+   function game_paused(Paused_Game){
+     if (!Paused_Game) {
+       if (collisionX){
+         stepX = -0.20;
+       }else{
+         stepX = 0.20;
+       }
+       if (collisionY){
+         stepY = -0.15;
+       }else{
+         stepY = 0.20;
+       }
+       document.getElementById("paused").innerHTML = "";
+
+     }else{
+       if (!game_finished){
+       document.getElementById("paused").innerHTML = "PAUSED GAME";
+       }
+       stepX = 0;
+       stepY = 0;
+     }
+   }
+
+   function end_game(PLAYER_GOALS, CPU_GOALS){
+     if (PLAYER_GOALS >= win_score || CPU_GOALS >= win_score) {
+       Paused_Game = true;
+       game_finished = true;
+       game_paused(Paused_Game)
+       PLAYER_GOALS = 0;
+       CPU_GOALS = 0;
+   		 document.getElementById("play_again").innerHTML = "Refresh the page to play again";
+     }
+     if (PLAYER_GOALS >= win_score){
+       document.getElementById("scores").innerHTML = "Player wins!";
+     } else if (CPU_GOALS >= win_score){
+       document.getElementById("scores").innerHTML = "CPU wins!";
+     }
+   }
+
+   function reset_ball(sphere, borders){
+     sphere.position.x = 0;
+     sphere.position.y = 0;
+     borders[2].position.x = 0;
+     borders[3].position.x = 0;
+   }
+
+   function ia_cpu(sphere, cpu){
+     cpu.position.x = sphere.position.x;
+
+   }
+
+   function getLight() {
+      var light = new THREE.SpotLight();
+      light.position.set(100, 100, 100);
+      light.angle = Math.PI / 12;
+      light.castShadow = true;
+      light.shadow.camera.near = 100;
+      light.shadow.camera.far = 250;
+      light.shadow.camera.fov = 300;
+      light.shadow.camera.aspect = 1;
+      light.shadow.mapSize.width = 4096;
+      light.shadow.mapSize.height = 4096;
+      return light;
+   }
+
+   function getSphere() {
+      var geometry = new THREE.SphereGeometry(0.6, 30, 20);
+      var mesh = new THREE.Mesh(geometry, getMaterial("smoke.jpg", 10, 10));
+      mesh.position.z = 0.5;
+      mesh.castShadow = true;
+      mesh.name = "sphere";
+
+      return mesh;
+   }
+
+   function getFloor() {
+      var geometry = new THREE.PlaneGeometry(20, 30);
+      var mesh = new THREE.Mesh(geometry, getMaterial("stripes.jpg", 20, 20));
+      mesh.receiveShadow = true;
+
+      return mesh;
+   }
+
+   function  getBorder(name, x, y, z, posX, posY, posZ) {
+      var geometry = new THREE.BoxGeometry(x, y, z);
+      var mesh = new THREE.Mesh(geometry, getMaterial("smoke.jpg", 10, 10));
+      mesh.receiveShadow = true;
+      mesh.position.set(posX, posY, posZ);
+      mesh.name = name;
+
+      return mesh;
+   }
+
+   function getMaterial(image, x, y) {
+      var texture = new THREE.TextureLoader().load(image);
+      var material = new THREE.MeshPhysicalMaterial({
+         map : texture
+      });
+      material.map.wrapS = material.map.wrapT = THREE.RepeatWrapping;
+      material.map.repeat.set(x, y);
+      material.side = THREE.DoubleSide;
+
+      return material;
+   }
+
+   function checkCollision(sphere, borders) {
+      var originPosition = sphere.position.clone();
+
+      for (var i = 0; i < sphere.geometry.vertices.length; i++) {
+         var localVertex = sphere.geometry.vertices[i].clone();
+          var globalVertex = localVertex.applyMatrix4(sphere.matrix);
+         var directionVector = globalVertex.sub(sphere.position);
+         var ray = new THREE.Raycaster(originPosition, directionVector.clone().normalize());
+         var collisionResults = ray.intersectObjects(borders);
+         if (collisionResults.length > 0 && collisionResults[0].distance < directionVector.length()) {
+            // Collision detected
+            if (collisionResults[0].object.name == "left" || collisionResults[0].object.name == "right") {
+               stepX *= -1;
+               collisionX = !collisionX;
+            }
+            if (collisionResults[0].object.name == "down" || collisionResults[0].object.name == "top") {
+               stepY *= -1;
+               collisionY = !collisionY;
+            }
+            break;
+         }
+      }
+   }
+</script>
+</head>
+
+<body onload="start()">
+  <head>
+		<title>PONG 3D</title>
+		<style>
+			body {
+				background-color: black;
+			}
+			#scoreboard {
+				text-align: center;
+				font-family: Segoe UI, Helvetica, Ubuntu, sans-serif;
+				color: white;
+			}
+			#scores {
+				font-size:600%;
+				padding:0;
+				margin:0;
+				color: red;
+			}
+			#title {
+				color: white;
+        font-size:500%;
+
+			}
+		</style>
+	</head>
+  <div id='gameCanvas'></div>
+		<div id='scoreboard'>
+			<h1 id='title'>PONG 3D</h1>
+			<h2 id='winnerBoard'>First to 5 wins!</h2>
+			<h3 id = 'control'><-- : move left
+			<br>--> : move right</h3>
+      <h4 id = 'begin'> Press SPACE for play/pause</h4>
+      <h1 id='scores'>0-0</h1>
+      <h2 id='play_again'></h2>
+      <h1 id='paused'></h1>
+		</div>
+</body>
+
+</html>
