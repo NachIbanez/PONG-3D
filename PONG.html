@@ -11,11 +11,11 @@
    var stepY = 0.15;
    var collisionX = false;
    var collisionY = false;
-   var win_score = 5;
+   var win_score = 3;
    var Paused_Game = true;
    var PLAYER_GOALS = 0;
    var CPU_GOALS = 0;
-   var game_finished = false;
+   var random = 1;
 
    document.onkeydown = function (ev) {
      switch (ev.keyCode) {
@@ -72,10 +72,14 @@
       document.onkeydown = function (ev) {
         switch (ev.keyCode) {
           case 37: // Left
-            Player.position.x += -0.5;
+            if (Player.position.x > leftBorder.position.x + Player.geometry.parameters.width/2){
+              Player.position.x += -0.5;
+            }
             break;
           case 39: // Right
-            Player.position.x += 0.5;
+            if (Player.position.x < rightBorder.position.x - Player.geometry.parameters.width/2){
+              Player.position.x += 0.5;
+            }
             break;
           case 32: // Space
             Paused_Game = !Paused_Game;
@@ -83,11 +87,12 @@
             break;
             }
         };
+
    }
 
    function animate(sphere, borders, renderer, scene, camera) {
       checkCollision(sphere, borders);
-      ia_cpu(sphere, borders[2]);
+      ia_cpu(sphere, borders[2], Paused_Game);
       end_game(PLAYER_GOALS, CPU_GOALS)
 
       if (sphere.position.y > borders[0].geometry.parameters.height/2){
@@ -137,6 +142,13 @@
    }
 
    function end_game(PLAYER_GOALS, CPU_GOALS){
+
+     if (PLAYER_GOALS >= win_score){
+       document.getElementById("scores").innerHTML = "Player wins!";
+     } else if (CPU_GOALS >= win_score){
+       document.getElementById("scores").innerHTML = "CPU wins!";
+     }
+
      if (PLAYER_GOALS >= win_score || CPU_GOALS >= win_score) {
        Paused_Game = true;
        game_finished = true;
@@ -145,11 +157,7 @@
        CPU_GOALS = 0;
    		 document.getElementById("play_again").innerHTML = "Refresh the page to play again";
      }
-     if (PLAYER_GOALS >= win_score){
-       document.getElementById("scores").innerHTML = "Player wins!";
-     } else if (CPU_GOALS >= win_score){
-       document.getElementById("scores").innerHTML = "CPU wins!";
-     }
+
    }
 
    function reset_ball(sphere, borders){
@@ -159,15 +167,40 @@
      borders[3].position.x = 0;
    }
 
-   function ia_cpu(sphere, cpu){
-     cpu.position.x = sphere.position.x;
+   function ia_cpu(sphere, cpu, Paused_Game, player, difficult_name, difficult){
+     if (!Paused_Game){
 
+       var difficult_selector = document.querySelector('input[name="difficult"]:checked').value;
+       switch (difficult_selector){
+         case "easy":
+            var difficult = 0.50;
+            var difficult_name = "easy";
+            break;
+         case "normal":
+            var difficult = 0.70;
+            var difficult_name = "normal";
+            break;
+         case "hard":
+            var difficult = 0.99;
+            var difficult_name = "hard";
+            break;
+         case "impossible":
+            var difficult_name = "impossible";
+            break;
+       }
+
+       if (difficult_name != "impossible"){
+          cpu.position.x = (sphere.position.x - cpu.position.x) * (difficult);
+       } else {
+          cpu.position.x = sphere.position.x;
+       }
+     }
    }
 
    function getLight() {
       var light = new THREE.SpotLight();
       light.position.set(100, 100, 100);
-      light.angle = Math.PI / 12;
+      light.angle = Math.PI / 10;
       light.castShadow = true;
       light.shadow.camera.near = 100;
       light.shadow.camera.far = 250;
@@ -236,6 +269,7 @@
             if (collisionResults[0].object.name == "down" || collisionResults[0].object.name == "top") {
                stepY *= -1;
                collisionY = !collisionY;
+               random = 0.1 + Math.random();
             }
             break;
          }
@@ -275,11 +309,19 @@
 			<h2 id='winnerBoard'>First to 5 wins!</h2>
 			<h3 id = 'control'><-- : move left
 			<br>--> : move right</h3>
+
+      <b>Difficult:</b>
+      <input type="radio" name="difficult" value="easy" checked> EASY
+      <input type="radio" name="difficult" value="normal" checked> NORMAL
+      <input type="radio" name="difficult" value="hard" checked> HARD
+      <input type="radio" name="difficult" value="impossible" checked> IMPOSSIBLE
+
       <h4 id = 'begin'> Press SPACE for play/pause</h4>
       <h1 id='scores'>0-0</h1>
       <h2 id='play_again'></h2>
       <h1 id='paused'></h1>
 		</div>
+
 </body>
 
 </html>
