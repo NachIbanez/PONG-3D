@@ -16,6 +16,11 @@
    var PLAYER_GOALS = 0;
    var CPU_GOALS = 0;
    var random = 1;
+   var difficult = 0;
+   var difficult_name = "";
+   var count = 0;
+   var counter_player = 0;
+
 
    document.onkeydown = function (ev) {
      switch (ev.keyCode) {
@@ -67,6 +72,25 @@
       scene.add(floor);
 
       var borders = [ leftBorder, rightBorder, cpu, Player ];
+      var difficult_selector = document.querySelector('input[name="difficult"]:checked').value;
+      switch (difficult_selector){
+        case "easy":
+           difficult = 0.50;
+           difficult_name = "easy";
+           break;
+        case "normal":
+           difficult = 0.70;
+           difficult_name = "normal";
+           break;
+        case "hard":
+           difficult = 0.99;
+           difficult_name = "hard";
+           break;
+        case "impossible":
+           difficult_name = "impossible";
+           break;
+      }
+
       animate(sphere, borders, renderer, scene, camera);
 
       document.onkeydown = function (ev) {
@@ -74,11 +98,13 @@
           case 37: // Left
             if (Player.position.x > leftBorder.position.x + Player.geometry.parameters.width/2){
               Player.position.x += -0.5;
+              counter_player += 1;
             }
             break;
           case 39: // Right
             if (Player.position.x < rightBorder.position.x - Player.geometry.parameters.width/2){
               Player.position.x += 0.5;
+              counter_player += 1;
             }
             break;
           case 32: // Space
@@ -92,7 +118,7 @@
 
    function animate(sphere, borders, renderer, scene, camera) {
       checkCollision(sphere, borders);
-      ia_cpu(sphere, borders[2], Paused_Game);
+      ia_cpu(sphere, borders[2], Paused_Game, borders[3]);
       end_game(PLAYER_GOALS, CPU_GOALS)
 
       if (sphere.position.y > borders[0].geometry.parameters.height/2){
@@ -165,29 +191,13 @@
      sphere.position.y = 0;
      borders[2].position.x = 0;
      borders[3].position.x = 0;
+
+     stepX = 0.20;
+     stepY = 0.15;
    }
 
-   function ia_cpu(sphere, cpu, Paused_Game, player, difficult_name, difficult){
+   function ia_cpu(sphere, cpu, Paused_Game, player){
      if (!Paused_Game){
-
-       var difficult_selector = document.querySelector('input[name="difficult"]:checked').value;
-       switch (difficult_selector){
-         case "easy":
-            var difficult = 0.50;
-            var difficult_name = "easy";
-            break;
-         case "normal":
-            var difficult = 0.70;
-            var difficult_name = "normal";
-            break;
-         case "hard":
-            var difficult = 0.99;
-            var difficult_name = "hard";
-            break;
-         case "impossible":
-            var difficult_name = "impossible";
-            break;
-       }
 
        if (difficult_name != "impossible"){
           cpu.position.x = (sphere.position.x - cpu.position.x) * (difficult);
@@ -253,6 +263,7 @@
 
    function checkCollision(sphere, borders) {
       var originPosition = sphere.position.clone();
+      count++;
 
       for (var i = 0; i < sphere.geometry.vertices.length; i++) {
          var localVertex = sphere.geometry.vertices[i].clone();
@@ -260,18 +271,45 @@
          var directionVector = globalVertex.sub(sphere.position);
          var ray = new THREE.Raycaster(originPosition, directionVector.clone().normalize());
          var collisionResults = ray.intersectObjects(borders);
+
          if (collisionResults.length > 0 && collisionResults[0].distance < directionVector.length()) {
             // Collision detected
             if (collisionResults[0].object.name == "left" || collisionResults[0].object.name == "right") {
                stepX *= -1;
                collisionX = !collisionX;
             }
-            if (collisionResults[0].object.name == "down" || collisionResults[0].object.name == "top") {
-               stepY *= -1;
-               collisionY = !collisionY;
-               random = 0.1 + Math.random();
+            if (count > 20){
+              if (collisionResults[0].object.name == "down" || collisionResults[0].object.name == "top") {
+                 stepY *= -1;
+                 count = 0;
+                 collisionY = !collisionY;
+                 random = 0.1 + Math.random();
+                 choque_sound = document.getElementById('choque');
+                 choque_sound.play();
+              }
+              if (collisionResults[0].object.name == "down"){
+                if(counter_player < 10){
+                  stepY *= 0.6;
+                } else if (counter_player < 20) {
+                  stepY *= 1.3;
+                } else{
+                  stepY *= 2;
+                };
+
+                if(collisionResults[0].point.x < borders[3].position.x + borders[3].position.x/3 && collisionResults[0].point.x > -borders[3].position.x + borders[3].position.x/3){
+                  stepX *= 0.5;
+                } else {
+                  stepX *= 1.5;
+                }
+              }
+              if (collisionResults[0].object.name == "top"){
+                counter_player = 0;
+
+              }
+              break;
+            } else {
+              break;
             }
-            break;
          }
       }
    }
@@ -321,6 +359,9 @@
       <h2 id='play_again'></h2>
       <h1 id='paused'></h1>
 		</div>
+
+    <audio id="choque" src="" preload="auto"></audio>
+
 
 </body>
 
